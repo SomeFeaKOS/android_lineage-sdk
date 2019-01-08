@@ -99,18 +99,6 @@ public final class LineageHardwareManager {
     public static final int FEATURE_DISPLAY_GAMMA_CALIBRATION = 0x8;
 
     /**
-     * High touch sensitivity for touch panels
-     */
-    @VisibleForTesting
-    public static final int FEATURE_HIGH_TOUCH_SENSITIVITY = 0x10;
-
-    /**
-     * Hardware navigation key disablement
-     */
-    @VisibleForTesting
-    public static final int FEATURE_KEY_DISABLE = 0x20;
-
-    /**
      * Long term orbits (LTO)
      */
     @VisibleForTesting
@@ -133,12 +121,6 @@ public final class LineageHardwareManager {
      */
     @VisibleForTesting
     public static final int FEATURE_VIBRATOR = 0x400;
-
-    /**
-     * Touchscreen hovering
-     */
-    @VisibleForTesting
-    public static final int FEATURE_TOUCH_HOVERING = 0x800;
 
     /**
      * Auto contrast
@@ -170,20 +152,11 @@ public final class LineageHardwareManager {
     @VisibleForTesting
     public static final int FEATURE_PICTURE_ADJUSTMENT = 0x40000;
 
-    /**
-     * Touchscreen gesture
-     */
-    @VisibleForTesting
-    public static final int FEATURE_TOUCHSCREEN_GESTURES = 0x80000;
-
     private static final List<Integer> BOOLEAN_FEATURES = Arrays.asList(
         FEATURE_ADAPTIVE_BACKLIGHT,
         FEATURE_AUTO_CONTRAST,
         FEATURE_COLOR_ENHANCEMENT,
-        FEATURE_HIGH_TOUCH_SENSITIVITY,
-        FEATURE_KEY_DISABLE,
         FEATURE_SUNLIGHT_ENHANCEMENT,
-        FEATURE_TOUCH_HOVERING,
         FEATURE_READING_ENHANCEMENT
     );
 
@@ -1213,54 +1186,6 @@ public final class LineageHardwareManager {
     }
 
     /**
-     * @return a list of available touchscreen gestures on the devices
-     */
-    public TouchscreenGesture[] getTouchscreenGestures() {
-        if (isSupportedHIDL(FEATURE_TOUCHSCREEN_GESTURES)) {
-            ITouchscreenGesture touchscreenGesture = (ITouchscreenGesture)
-                    mHIDLMap.get(FEATURE_TOUCHSCREEN_GESTURES);
-            try {
-                return HIDLHelper.fromHIDLGestures(touchscreenGesture.getSupportedGestures());
-            } catch (RemoteException e){
-                return null;
-            }
-        }
-
-        try {
-            if (checkService()) {
-                return sService.getTouchscreenGestures();
-            }
-        } catch (RemoteException e) {
-        }
-        return null;
-    }
-
-    /**
-     * @return true if setting the activation status was successful
-     */
-    public boolean setTouchscreenGestureEnabled(
-            TouchscreenGesture gesture, boolean state) {
-        if (isSupportedHIDL(FEATURE_TOUCHSCREEN_GESTURES)) {
-            ITouchscreenGesture touchscreenGesture = (ITouchscreenGesture)
-                    mHIDLMap.get(FEATURE_TOUCHSCREEN_GESTURES);
-            try {
-                return touchscreenGesture.setGestureEnabled(
-                        HIDLHelper.toHIDLGesture(gesture), state);
-            } catch (RemoteException e){
-                return false;
-            }
-        }
-
-        try {
-            if (checkService()) {
-                return sService.setTouchscreenGestureEnabled(gesture, state);
-            }
-        } catch (RemoteException e) {
-        }
-        return false;
-    }
-
-    /**
      * @return true if service is valid
      */
     private boolean checkService() {
@@ -1270,5 +1195,4 @@ public final class LineageHardwareManager {
         }
         return true;
     }
-
 }
