@@ -182,7 +182,6 @@ package lineageos.hardware {
     method public lineageos.hardware.DisplayMode getDefaultDisplayMode();
     method public lineageos.hardware.HSIC getDefaultPictureAdjustment();
     method public int[] getDisplayColorCalibration();
-    method public int getDisplayColorCalibrationDefault();
     method public int getDisplayColorCalibrationMax();
     method public int getDisplayColorCalibrationMin();
     method public deprecated int[] getDisplayGammaCalibration(int);
@@ -197,7 +196,6 @@ package lineageos.hardware {
     method public lineageos.hardware.HSIC getPictureAdjustment();
     method public java.util.List<android.util.Range<java.lang.Float>> getPictureAdjustmentRanges();
     method public java.lang.String getSerialNumber();
-    method public int getSupportedFeatures();
     method public lineageos.hardware.TouchscreenGesture[] getTouchscreenGestures();
     method public int getVibratorDefaultIntensity();
     method public int getVibratorIntensity();
