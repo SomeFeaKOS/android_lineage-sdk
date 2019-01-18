@@ -222,7 +222,7 @@ public final class LineageHardwareManager {
         }
         try {
             IPictureAdjustment pictureAdjustment = IPictureAdjustment.getService(true);
-            mHIDLMap.put(FEATURE_DISPLAY_MODES, pictureAdjustment);
+            mHIDLMap.put(FEATURE_PICTURE_ADJUSTMENT, pictureAdjustment);
         } catch (NoSuchElementException | RemoteException e) {
         }
         try {
@@ -1186,6 +1186,54 @@ public final class LineageHardwareManager {
     }
 
     /**
+     * @return a list of available touchscreen gestures on the devices
+     */
+    public TouchscreenGesture[] getTouchscreenGestures() {
+        if (isSupportedHIDL(FEATURE_TOUCHSCREEN_GESTURES)) {
+            ITouchscreenGesture touchscreenGesture = (ITouchscreenGesture)
+                    mHIDLMap.get(FEATURE_TOUCHSCREEN_GESTURES);
+            try {
+                return HIDLHelper.fromHIDLGestures(touchscreenGesture.getSupportedGestures());
+            } catch (RemoteException e){
+                return null;
+            }
+        }
+
+        try {
+            if (checkService()) {
+                return sService.getTouchscreenGestures();
+            }
+        } catch (RemoteException e) {
+        }
+        return null;
+    }
+
+    /**
+     * @return true if setting the activation status was successful
+     */
+    public boolean setTouchscreenGestureEnabled(
+            TouchscreenGesture gesture, boolean state) {
+        if (isSupportedHIDL(FEATURE_TOUCHSCREEN_GESTURES)) {
+            ITouchscreenGesture touchscreenGesture = (ITouchscreenGesture)
+                    mHIDLMap.get(FEATURE_TOUCHSCREEN_GESTURES);
+            try {
+                return touchscreenGesture.setGestureEnabled(
+                        HIDLHelper.toHIDLGesture(gesture), state);
+            } catch (RemoteException e){
+                return false;
+            }
+        }
+
+        try {
+            if (checkService()) {
+                return sService.setTouchscreenGestureEnabled(gesture, state);
+            }
+        } catch (RemoteException e) {
+        }
+        return false;
+    }
+
+    /**
      * @return true if service is valid
      */
     private boolean checkService() {
@@ -1195,4 +1243,5 @@ public final class LineageHardwareManager {
         }
         return true;
     }
+
 }
