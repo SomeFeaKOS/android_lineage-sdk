@@ -128,7 +128,7 @@
     <string name="lineage_api_level">LineageOS приложно-програмен интерфейс ниво</string>
     <!-- About device screen, LineageOS updates -->
     <string name="lineage_updates">LineageOS актуализации</string>
-    <!-- About device screen, LineageOS version -->
+    <!-- About device screen, SomeFeaKOS version -->
     <string name="lineage_version">Версия на LineageOS</string>
     <!-- About device screen, vendor security patch -->
     <string name="lineage_vendor_security_patch">Ниво на сигурност на доставчик</string>

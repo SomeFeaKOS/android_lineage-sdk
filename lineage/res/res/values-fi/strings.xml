@@ -128,7 +128,7 @@
     <string name="lineage_api_level">LineageOS API-taso</string>
     <!-- About device screen, LineageOS updates -->
     <string name="lineage_updates">LineageOS-päivitykset</string>
-    <!-- About device screen, LineageOS version -->
+    <!-- About device screen, SomeFeaKOS version -->
     <string name="lineage_version">LineageOS-versio</string>
     <!-- About device screen, vendor security patch -->
     <string name="lineage_vendor_security_patch">Valmistajan tietoturvakorjauksen taso</string>

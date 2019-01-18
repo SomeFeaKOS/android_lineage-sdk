@@ -128,7 +128,7 @@
     <string name="lineage_api_level">Επίπεδο LineageOS API</string>
     <!-- About device screen, LineageOS updates -->
     <string name="lineage_updates">Ενημερώσεις LineageOS</string>
-    <!-- About device screen, LineageOS version -->
+    <!-- About device screen, SomeFeaKOS version -->
     <string name="lineage_version">Έκδοση LineageOS</string>
     <!-- About device screen, vendor security patch -->
     <string name="lineage_vendor_security_patch">Επίπεδο ενημέρωσης κώδικα ασφαλείας κατασκευαστή</string>

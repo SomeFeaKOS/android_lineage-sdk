@@ -119,7 +119,7 @@
     <string name="lineage_api_level">LineageOS\'i API tase</string>
     <!-- About device screen, LineageOS updates -->
     <string name="lineage_updates">LineageOS\'i uuendused</string>
-    <!-- About device screen, LineageOS version -->
+    <!-- About device screen, SomeFeaKOS version -->
     <string name="lineage_version">LineageOS\'i versioon</string>
     <!-- About device screen, vendor security patch -->
     <string name="lineage_vendor_security_patch">Tarnija turvapaiga tase</string>

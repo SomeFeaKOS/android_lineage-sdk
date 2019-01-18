@@ -128,7 +128,7 @@
     <string name="lineage_api_level">LineageOS API maila</string>
     <!-- About device screen, LineageOS updates -->
     <string name="lineage_updates">LineageOS eguneraketak</string>
-    <!-- About device screen, LineageOS version -->
+    <!-- About device screen, SomeFeaKOS version -->
     <string name="lineage_version">LineageOS bertsioa</string>
     <!-- About device screen, vendor security patch -->
     <string name="lineage_vendor_security_patch">Saltzailearen segurtasun partxe maila</string>

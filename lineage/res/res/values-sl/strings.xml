@@ -128,7 +128,7 @@
     <string name="lineage_api_level">Raven LineageOS API-ja</string>
     <!-- About device screen, LineageOS updates -->
     <string name="lineage_updates">Posodobitve LineageOS</string>
-    <!-- About device screen, LineageOS version -->
+    <!-- About device screen, SomeFeaKOS version -->
     <string name="lineage_version">Različica LineageOS</string>
     <!-- About device screen, vendor security patch -->
     <string name="lineage_vendor_security_patch">Raven popravkov za varnost proizvajalca</string>

@@ -128,7 +128,7 @@
     <string name="lineage_api_level">LineageOS API razina</string>
     <!-- About device screen, LineageOS updates -->
     <string name="lineage_updates">LineageOS ažuriranja</string>
-    <!-- About device screen, LineageOS version -->
+    <!-- About device screen, SomeFeaKOS version -->
     <string name="lineage_version">LineageOS verzija</string>
     <!-- About device screen, vendor security patch -->
     <!-- General purpose use "unknown" string -->

@@ -120,7 +120,7 @@
     <string name="lineage_api_level">Niveau van LineageOS-API</string>
     <!-- About device screen, LineageOS updates -->
     <string name="lineage_updates">LineageOS-updates</string>
-    <!-- About device screen, LineageOS version -->
+    <!-- About device screen, SomeFeaKOS version -->
     <string name="lineage_version">LineageOS-versie</string>
     <!-- About device screen, vendor security patch -->
     <!-- General purpose use "unknown" string -->

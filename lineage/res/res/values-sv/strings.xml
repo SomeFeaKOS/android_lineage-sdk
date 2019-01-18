@@ -95,7 +95,7 @@
     <!-- About device screen, LineageOS API Level -->
     <!-- About device screen, LineageOS updates -->
     <string name="lineage_updates">LineageOS-uppdateringar</string>
-    <!-- About device screen, LineageOS version -->
+    <!-- About device screen, SomeFeaKOS version -->
     <string name="lineage_version">LineageOS-version</string>
     <!-- About device screen, vendor security patch -->
     <!-- General purpose use "unknown" string -->
