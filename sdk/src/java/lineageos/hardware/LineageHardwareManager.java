@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2015-2016 The CyanogenMod Project
- *               2017-2018 The LineageOS Project
+ *               2017-2019 The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,11 +21,11 @@ import android.hidl.base.V1_0.IBase;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.ServiceManager;
+import android.util.ArrayMap;
 import android.util.Log;
 import android.util.Range;
 
 import com.android.internal.annotations.VisibleForTesting;
-
 import com.android.internal.util.ArrayUtils;
 
 import lineageos.app.LineageContextConstants;
@@ -93,12 +93,6 @@ public final class LineageHardwareManager {
     public static final int FEATURE_DISPLAY_COLOR_CALIBRATION = 0x4;
 
     /**
-     * Display gamma calibration
-     */
-    @VisibleForTesting
-    public static final int FEATURE_DISPLAY_GAMMA_CALIBRATION = 0x8;
-
-    /**
      * High touch sensitivity for touch panels
      */
     @VisibleForTesting
@@ -109,18 +103,6 @@ public final class LineageHardwareManager {
      */
     @VisibleForTesting
     public static final int FEATURE_KEY_DISABLE = 0x20;
-
-    /**
-     * Long term orbits (LTO)
-     */
-    @VisibleForTesting
-    public static final int FEATURE_LONG_TERM_ORBITS = 0x40;
-
-    /**
-     * Serial number other than ro.serialno
-     */
-    @VisibleForTesting
-    public static final int FEATURE_SERIAL_NUMBER = 0x80;
 
     /**
      * Increased display readability in bright light
@@ -192,8 +174,11 @@ public final class LineageHardwareManager {
 
     private Context mContext;
 
+    private final ArrayMap<String, String> mDisplayModeMappings = new ArrayMap<String, String>();
+    private final boolean mFilterDisplayModes;
+
     // HIDL hals
-    private HashMap<Integer, IBase> mHIDLMap;
+    private HashMap<Integer, IBase> mHIDLMap = new HashMap<Integer, IBase>();
 
     /**
      * @hide to prevent subclassing from outside of the framework
@@ -214,74 +199,18 @@ public final class LineageHardwareManager {
                     " SystemServer init");
         }
 
-        mHIDLMap = new HashMap<Integer, IBase>();
-
-        try {
-            IAdaptiveBacklight adaptiveBacklight = IAdaptiveBacklight.getService(true);
-            mHIDLMap.put(FEATURE_ADAPTIVE_BACKLIGHT, adaptiveBacklight);
-        } catch (NoSuchElementException | RemoteException e) {
+        final String[] mappings = mContext.getResources().getStringArray(
+                org.lineageos.platform.internal.R.array.config_displayModeMappings);
+        if (mappings != null && mappings.length > 0) {
+            for (String mapping : mappings) {
+                String[] split = mapping.split(":");
+                if (split.length == 2) {
+                    mDisplayModeMappings.put(split[0], split[1]);
+                }
+            }
         }
-        try {
-            IAutoContrast autoContrast = IAutoContrast.getService(true);
-            mHIDLMap.put(FEATURE_AUTO_CONTRAST, autoContrast);
-        } catch (NoSuchElementException | RemoteException e) {
-        }
-        try {
-            IColorBalance colorBalance = IColorBalance.getService(true);
-            mHIDLMap.put(FEATURE_COLOR_BALANCE, colorBalance);
-        } catch (NoSuchElementException | RemoteException e) {
-        }
-        try {
-            IColorEnhancement colorEnhancement = IColorEnhancement.getService(true);
-            mHIDLMap.put(FEATURE_COLOR_ENHANCEMENT, colorEnhancement);
-        } catch (NoSuchElementException | RemoteException e) {
-        }
-        try {
-            IDisplayColorCalibration displayColorCalibration =
-                    IDisplayColorCalibration.getService(true);
-            mHIDLMap.put(FEATURE_DISPLAY_COLOR_CALIBRATION, displayColorCalibration);
-        } catch (NoSuchElementException | RemoteException e) {
-        }
-        try {
-            IDisplayModes displayModes = IDisplayModes.getService(true);
-            mHIDLMap.put(FEATURE_DISPLAY_MODES, displayModes);
-        } catch (NoSuchElementException | RemoteException e) {
-        }
-        try {
-            IPictureAdjustment pictureAdjustment = IPictureAdjustment.getService(true);
-            mHIDLMap.put(FEATURE_PICTURE_ADJUSTMENT, pictureAdjustment);
-        } catch (NoSuchElementException | RemoteException e) {
-        }
-        try {
-            IReadingEnhancement readingEnhancement = IReadingEnhancement.getService(true);
-            mHIDLMap.put(FEATURE_READING_ENHANCEMENT, readingEnhancement);
-        } catch (NoSuchElementException | RemoteException e) {
-        }
-        try {
-            ISunlightEnhancement sunlightEnhancement = ISunlightEnhancement.getService(true);
-            mHIDLMap.put(FEATURE_SUNLIGHT_ENHANCEMENT, sunlightEnhancement);
-        } catch (NoSuchElementException | RemoteException e) {
-        }
-        try {
-            IGloveMode gloveMode = IGloveMode.getService(true);
-            mHIDLMap.put(FEATURE_HIGH_TOUCH_SENSITIVITY, gloveMode);
-        } catch (NoSuchElementException | RemoteException e) {
-        }
-        try {
-            IKeyDisabler keyDisabler = IKeyDisabler.getService(true);
-            mHIDLMap.put(FEATURE_KEY_DISABLE, keyDisabler);
-        } catch (NoSuchElementException | RemoteException e) {
-        }
-        try {
-            IStylusMode stylusMode = IStylusMode.getService(true);
-            mHIDLMap.put(FEATURE_TOUCH_HOVERING, stylusMode);
-        } catch (NoSuchElementException | RemoteException e) {
-        }
-        try {
-            ITouchscreenGesture touchscreenGesture = ITouchscreenGesture.getService(true);
-            mHIDLMap.put(FEATURE_TOUCHSCREEN_GESTURES, touchscreenGesture);
-        } catch (NoSuchElementException | RemoteException e) {
-        }
+        mFilterDisplayModes = mContext.getResources().getBoolean(
+                org.lineageos.platform.internal.R.bool.config_filterDisplayModes);
     }
 
     /**
@@ -290,8 +219,6 @@ public final class LineageHardwareManager {
      * @return {@link LineageHardwareManager}
      */
     public static LineageHardwareManager getInstance(Context context) {
-        context.enforceCallingOrSelfPermission(
-                lineageos.platform.Manifest.permission.HARDWARE_ABSTRACTION_ACCESS, null);
         if (sLineageHardwareManagerInstance == null) {
             sLineageHardwareManagerInstance = new LineageHardwareManager(context);
         }
@@ -312,20 +239,6 @@ public final class LineageHardwareManager {
     }
 
     /**
-     * @return the supported features bitmask
-     * @hide
-     */
-    public int getSupportedFeatures() {
-        try {
-            if (checkService()) {
-                return sService.getSupportedFeatures();
-            }
-        } catch (RemoteException e) {
-        }
-        return 0;
-    }
-
-    /**
      * Determine if a Lineage Hardware feature is supported on this device
      *
      * @param feature The Lineage Hardware feature to query
@@ -337,11 +250,55 @@ public final class LineageHardwareManager {
     }
 
     private boolean isSupportedHIDL(int feature) {
-        return mHIDLMap.containsKey(feature);
+        if (!mHIDLMap.containsKey(feature)) {
+            mHIDLMap.put(feature, getHIDLService(feature));
+        }
+        return mHIDLMap.get(feature) != null;
     }
 
     private boolean isSupportedLegacy(int feature) {
-        return feature == (getSupportedFeatures() & feature);
+        try {
+            if (checkService()) {
+                return feature == (sService.getSupportedFeatures() & feature);
+            }
+        } catch (RemoteException e) {
+        }
+        return false;
+    }
+
+    private IBase getHIDLService(int feature) {
+        try {
+            switch (feature) {
+                case FEATURE_ADAPTIVE_BACKLIGHT:
+                    return IAdaptiveBacklight.getService(true);
+                case FEATURE_AUTO_CONTRAST:
+                    return IAutoContrast.getService(true);
+                case FEATURE_COLOR_BALANCE:
+                    return IColorBalance.getService(true);
+                case FEATURE_COLOR_ENHANCEMENT:
+                    return IColorEnhancement.getService(true);
+                case FEATURE_DISPLAY_COLOR_CALIBRATION:
+                    return IDisplayColorCalibration.getService(true);
+                case FEATURE_DISPLAY_MODES:
+                    return IDisplayModes.getService(true);
+                case FEATURE_PICTURE_ADJUSTMENT:
+                    return IPictureAdjustment.getService(true);
+                case FEATURE_READING_ENHANCEMENT:
+                    return IReadingEnhancement.getService(true);
+                case FEATURE_SUNLIGHT_ENHANCEMENT:
+                    return ISunlightEnhancement.getService(true);
+                case FEATURE_HIGH_TOUCH_SENSITIVITY:
+                    return IGloveMode.getService(true);
+                case FEATURE_KEY_DISABLE:
+                    return IKeyDisabler.getService(true);
+                case FEATURE_TOUCH_HOVERING:
+                    return IStylusMode.getService(true);
+                case FEATURE_TOUCHSCREEN_GESTURES:
+                    return ITouchscreenGesture.getService(true);
+            }
+        } catch (NoSuchElementException | RemoteException e) {
+        }
+        return null;
     }
 
     /**
@@ -378,70 +335,36 @@ public final class LineageHardwareManager {
             throw new IllegalArgumentException(feature + " is not a boolean");
         }
 
-        if (isSupportedHIDL(feature)) {
-            IBase obj = mHIDLMap.get(feature);
-            switch (feature) {
-                case FEATURE_ADAPTIVE_BACKLIGHT:
-                    IAdaptiveBacklight adaptiveBacklight = (IAdaptiveBacklight) obj;
-                    try {
-                        return adaptiveBacklight.isEnabled();
-                    } catch (RemoteException e) {
-                        return false;
-                    }
-                case FEATURE_AUTO_CONTRAST:
-                    IAutoContrast autoContrast = (IAutoContrast) obj;
-                    try {
-                        return autoContrast.isEnabled();
-                    } catch (RemoteException e) {
-                        return false;
-                    }
-               case FEATURE_COLOR_ENHANCEMENT:
-                    IColorEnhancement colorEnhancement = (IColorEnhancement) obj;
-                    try {
-                        return colorEnhancement.isEnabled();
-                    } catch (RemoteException e) {
-                        return false;
-                    }
-               case FEATURE_HIGH_TOUCH_SENSITIVITY:
-                    IGloveMode gloveMode = (IGloveMode) obj;
-                    try {
-                        return gloveMode.isEnabled();
-                    } catch (RemoteException e) {
-                        return false;
-                    }
-               case FEATURE_KEY_DISABLE:
-                    IKeyDisabler keyDisabler = (IKeyDisabler) obj;
-                    try {
-                        return keyDisabler.isEnabled();
-                    } catch (RemoteException e) {
-                        return false;
-                    }
-               case FEATURE_SUNLIGHT_ENHANCEMENT:
-                    ISunlightEnhancement sunlightEnhancement = (ISunlightEnhancement) obj;
-                    try {
-                        return sunlightEnhancement.isEnabled();
-                    } catch (RemoteException e) {
-                        return false;
-                    }
-               case FEATURE_TOUCH_HOVERING:
-                    IStylusMode stylusMode = (IStylusMode) obj;
-                    try {
-                        return stylusMode.isEnabled();
-                    } catch (RemoteException e) {
-                        return false;
-                    }
-               case FEATURE_READING_ENHANCEMENT:
-                    IReadingEnhancement readingEnhancement = (IReadingEnhancement) obj;
-                    try {
-                        return readingEnhancement.isEnabled();
-                    } catch (RemoteException e) {
-                        return false;
-                    }
-            }
-        }
-
         try {
-            if (checkService()) {
+            if (isSupportedHIDL(feature)) {
+                IBase obj = mHIDLMap.get(feature);
+                switch (feature) {
+                    case FEATURE_ADAPTIVE_BACKLIGHT:
+                        IAdaptiveBacklight adaptiveBacklight = (IAdaptiveBacklight) obj;
+                        return adaptiveBacklight.isEnabled();
+                    case FEATURE_AUTO_CONTRAST:
+                        IAutoContrast autoContrast = (IAutoContrast) obj;
+                        return autoContrast.isEnabled();
+                    case FEATURE_COLOR_ENHANCEMENT:
+                        IColorEnhancement colorEnhancement = (IColorEnhancement) obj;
+                        return colorEnhancement.isEnabled();
+                    case FEATURE_HIGH_TOUCH_SENSITIVITY:
+                        IGloveMode gloveMode = (IGloveMode) obj;
+                        return gloveMode.isEnabled();
+                    case FEATURE_KEY_DISABLE:
+                        IKeyDisabler keyDisabler = (IKeyDisabler) obj;
+                        return keyDisabler.isEnabled();
+                    case FEATURE_SUNLIGHT_ENHANCEMENT:
+                        ISunlightEnhancement sunlightEnhancement = (ISunlightEnhancement) obj;
+                        return sunlightEnhancement.isEnabled();
+                    case FEATURE_TOUCH_HOVERING:
+                        IStylusMode stylusMode = (IStylusMode) obj;
+                        return stylusMode.isEnabled();
+                    case FEATURE_READING_ENHANCEMENT:
+                        IReadingEnhancement readingEnhancement = (IReadingEnhancement) obj;
+                        return readingEnhancement.isEnabled();
+                }
+            } else if (checkService()) {
                 return sService.get(feature);
             }
         } catch (RemoteException e) {
@@ -464,70 +387,36 @@ public final class LineageHardwareManager {
             throw new IllegalArgumentException(feature + " is not a boolean");
         }
 
-        if (isSupportedHIDL(feature)) {
-            IBase obj = mHIDLMap.get(feature);
-            switch (feature) {
-                case FEATURE_ADAPTIVE_BACKLIGHT:
-                    IAdaptiveBacklight adaptiveBacklight = (IAdaptiveBacklight) obj;
-                    try {
-                        return adaptiveBacklight.setEnabled(enable);
-                    } catch (RemoteException e) {
-                        return false;
-                    }
-                case FEATURE_AUTO_CONTRAST:
-                    IAutoContrast autoContrast = (IAutoContrast) obj;
-                    try {
-                        return autoContrast.setEnabled(enable);
-                    } catch (RemoteException e) {
-                        return false;
-                    }
-               case FEATURE_COLOR_ENHANCEMENT:
-                    IColorEnhancement colorEnhancement = (IColorEnhancement) obj;
-                    try {
-                        return colorEnhancement.setEnabled(enable);
-                    } catch (RemoteException e) {
-                        return false;
-                    }
-               case FEATURE_HIGH_TOUCH_SENSITIVITY:
-                    IGloveMode gloveMode = (IGloveMode) obj;
-                    try {
-                        return gloveMode.setEnabled(enable);
-                    } catch (RemoteException e) {
-                        return false;
-                    }
-               case FEATURE_KEY_DISABLE:
-                    IKeyDisabler keyDisabler = (IKeyDisabler) obj;
-                    try {
-                        return keyDisabler.setEnabled(enable);
-                    } catch (RemoteException e) {
-                        return false;
-                    }
-               case FEATURE_SUNLIGHT_ENHANCEMENT:
-                    ISunlightEnhancement sunlightEnhancement = (ISunlightEnhancement) obj;
-                    try {
-                        return sunlightEnhancement.setEnabled(enable);
-                    } catch (RemoteException e) {
-                        return false;
-                    }
-               case FEATURE_TOUCH_HOVERING:
-                    IStylusMode stylusMode = (IStylusMode) obj;
-                    try {
-                        return stylusMode.setEnabled(enable);
-                    } catch (RemoteException e) {
-                        return false;
-                    }
-               case FEATURE_READING_ENHANCEMENT:
-                    IReadingEnhancement readingEnhancement = (IReadingEnhancement) obj;
-                    try {
-                        return readingEnhancement.setEnabled(enable);
-                    } catch (RemoteException e) {
-                        return false;
-                    }
-            }
-        }
-
         try {
-            if (checkService()) {
+            if (isSupportedHIDL(feature)) {
+                IBase obj = mHIDLMap.get(feature);
+                switch (feature) {
+                    case FEATURE_ADAPTIVE_BACKLIGHT:
+                        IAdaptiveBacklight adaptiveBacklight = (IAdaptiveBacklight) obj;
+                        return adaptiveBacklight.setEnabled(enable);
+                    case FEATURE_AUTO_CONTRAST:
+                        IAutoContrast autoContrast = (IAutoContrast) obj;
+                        return autoContrast.setEnabled(enable);
+                    case FEATURE_COLOR_ENHANCEMENT:
+                        IColorEnhancement colorEnhancement = (IColorEnhancement) obj;
+                        return colorEnhancement.setEnabled(enable);
+                    case FEATURE_HIGH_TOUCH_SENSITIVITY:
+                        IGloveMode gloveMode = (IGloveMode) obj;
+                        return gloveMode.setEnabled(enable);
+                    case FEATURE_KEY_DISABLE:
+                        IKeyDisabler keyDisabler = (IKeyDisabler) obj;
+                        return keyDisabler.setEnabled(enable);
+                    case FEATURE_SUNLIGHT_ENHANCEMENT:
+                        ISunlightEnhancement sunlightEnhancement = (ISunlightEnhancement) obj;
+                        return sunlightEnhancement.setEnabled(enable);
+                    case FEATURE_TOUCH_HOVERING:
+                        IStylusMode stylusMode = (IStylusMode) obj;
+                        return stylusMode.setEnabled(enable);
+                    case FEATURE_READING_ENHANCEMENT:
+                        IReadingEnhancement readingEnhancement = (IReadingEnhancement) obj;
+                        return readingEnhancement.setEnabled(enable);
+                }
+            } else if (checkService()) {
                 return sService.set(feature, enable);
             }
         } catch (RemoteException e) {
@@ -649,18 +538,12 @@ public final class LineageHardwareManager {
     public static final int COLOR_CALIBRATION_MAX_INDEX = 4;
 
     private int[] getDisplayColorCalibrationArray() {
-        if (isSupportedHIDL(FEATURE_DISPLAY_COLOR_CALIBRATION)) {
-            IDisplayColorCalibration displayColorCalibration = (IDisplayColorCalibration)
-                    mHIDLMap.get(FEATURE_DISPLAY_COLOR_CALIBRATION);
-            try {
-                return ArrayUtils.convertToIntArray(displayColorCalibration.getCalibration());
-            } catch (RemoteException e) {
-                return null;
-            }
-        }
-
         try {
-            if (checkService()) {
+            if (isSupportedHIDL(FEATURE_DISPLAY_COLOR_CALIBRATION)) {
+                IDisplayColorCalibration displayColorCalibration = (IDisplayColorCalibration)
+                        mHIDLMap.get(FEATURE_DISPLAY_COLOR_CALIBRATION);
+                return ArrayUtils.convertToIntArray(displayColorCalibration.getCalibration());
+            } else if (checkService()) {
                 return sService.getDisplayColorCalibration();
             }
         } catch (RemoteException e) {
@@ -723,182 +606,18 @@ public final class LineageHardwareManager {
      * @return true on success, false otherwise.
      */
     public boolean setDisplayColorCalibration(int[] rgb) {
-        if (isSupportedHIDL(FEATURE_DISPLAY_COLOR_CALIBRATION)) {
-            IDisplayColorCalibration displayColorCalibration = (IDisplayColorCalibration)
-                    mHIDLMap.get(FEATURE_DISPLAY_COLOR_CALIBRATION);
-            try {
+        try {
+            if (isSupportedHIDL(FEATURE_DISPLAY_COLOR_CALIBRATION)) {
+                IDisplayColorCalibration displayColorCalibration = (IDisplayColorCalibration)
+                        mHIDLMap.get(FEATURE_DISPLAY_COLOR_CALIBRATION);
                 return displayColorCalibration.setCalibration(
                        new ArrayList<Integer>(Arrays.asList(rgb[0], rgb[1], rgb[2])));
-            } catch (RemoteException e) {
-                return false;
-            }
-        }
-
-        try {
-            if (checkService()) {
+            } else if (checkService()) {
                 return sService.setDisplayColorCalibration(rgb);
             }
         } catch (RemoteException e) {
         }
         return false;
-    }
-
-    /**
-     * {@hide}
-     */
-    public static final int GAMMA_CALIBRATION_RED_INDEX = 0;
-    /**
-     * {@hide}
-     */
-    public static final int GAMMA_CALIBRATION_GREEN_INDEX = 1;
-    /**
-     * {@hide}
-     */
-    public static final int GAMMA_CALIBRATION_BLUE_INDEX = 2;
-    /**
-     * {@hide}
-     */
-    public static final int GAMMA_CALIBRATION_MIN_INDEX = 3;
-    /**
-     * {@hide}
-     */
-    public static final int GAMMA_CALIBRATION_MAX_INDEX = 4;
-
-    private int[] getDisplayGammaCalibrationArray(int idx) {
-        try {
-            if (checkService()) {
-                return sService.getDisplayGammaCalibration(idx);
-            }
-        } catch (RemoteException e) {
-        }
-        return null;
-    }
-
-    /**
-     * @return the number of RGB controls the device supports
-     *
-     * @deprecated
-     */
-    @Deprecated
-    public int getNumGammaControls() {
-        try {
-            if (checkService()) {
-                return sService.getNumGammaControls();
-            }
-        } catch (RemoteException e) {
-        }
-        return 0;
-    }
-
-    /**
-     * @param idx the control to query
-     *
-     * @return the current RGB gamma calibration for the given control
-     *
-     * @deprecated
-     */
-    @Deprecated
-    public int[] getDisplayGammaCalibration(int idx) {
-        int[] arr = getDisplayGammaCalibrationArray(idx);
-        if (arr == null || arr.length < 3) {
-            return null;
-        }
-        return Arrays.copyOf(arr, 3);
-    }
-
-    /**
-     * @return the minimum value for all colors
-     *
-     * @deprecated
-     */
-    @Deprecated
-    public int getDisplayGammaCalibrationMin() {
-        return getArrayValue(getDisplayGammaCalibrationArray(0), GAMMA_CALIBRATION_MIN_INDEX, 0);
-    }
-
-    /**
-     * @return the maximum value for all colors
-     *
-     * @deprecated
-     */
-    @Deprecated
-    public int getDisplayGammaCalibrationMax() {
-        return getArrayValue(getDisplayGammaCalibrationArray(0), GAMMA_CALIBRATION_MAX_INDEX, 0);
-    }
-
-    /**
-     * Set the display gamma calibration for a specific control
-     *
-     * @param idx the control to set
-     * @param rgb RGB color calibration.  Each value must be between
-     * {@link #getDisplayGammaCalibrationMin()} and {@link #getDisplayGammaCalibrationMax()},
-     * inclusive.
-     *
-     * @return true on success, false otherwise.
-     *
-     * @deprecated
-     */
-    @Deprecated
-    public boolean setDisplayGammaCalibration(int idx, int[] rgb) {
-        try {
-            if (checkService()) {
-                return sService.setDisplayGammaCalibration(idx, rgb);
-            }
-        } catch (RemoteException e) {
-        }
-        return false;
-    }
-
-    /**
-     * @return the source location of LTO data, or null on failure
-     */
-    public String getLtoSource() {
-        try {
-            if (checkService()) {
-                return sService.getLtoSource();
-            }
-        } catch (RemoteException e) {
-        }
-        return null;
-    }
-
-    /**
-     * @return the destination location of LTO data, or null on failure
-     */
-    public String getLtoDestination() {
-        try {
-            if (checkService()) {
-                return sService.getLtoDestination();
-            }
-        } catch (RemoteException e) {
-        }
-        return null;
-    }
-
-    /**
-     * @return the interval, in milliseconds, to trigger LTO data download
-     */
-    public long getLtoDownloadInterval() {
-        try {
-            if (checkService()) {
-                return sService.getLtoDownloadInterval();
-            }
-        } catch (RemoteException e) {
-        }
-        return 0;
-    }
-
-    /**
-     * @return the serial number to display instead of ro.serialno, or null on failure
-     */
-    public String getSerialNumber() {
-        try {
-            if (checkService()) {
-                return sService.getSerialNumber();
-            }
-        } catch (RemoteException e) {
-        }
-        return null;
     }
 
     /**
@@ -940,83 +659,75 @@ public final class LineageHardwareManager {
      * @return a list of available display modes on the devices
      */
     public DisplayMode[] getDisplayModes() {
-        if (isSupportedHIDL(FEATURE_DISPLAY_MODES)) {
-            IDisplayModes displayModes = (IDisplayModes) mHIDLMap.get(FEATURE_DISPLAY_MODES);
-            try {
-                return HIDLHelper.fromHIDLModes(displayModes.getDisplayModes());
-            } catch (RemoteException e) {
-                return null;
-            }
-        }
-
+        DisplayMode[] modes = null;
         try {
-            if (checkService()) {
-                return sService.getDisplayModes();
+            if (isSupportedHIDL(FEATURE_DISPLAY_MODES)) {
+                IDisplayModes displayModes = (IDisplayModes) mHIDLMap.get(FEATURE_DISPLAY_MODES);
+                modes = HIDLHelper.fromHIDLModes(displayModes.getDisplayModes());
+            } else if (checkService()) {
+                modes= sService.getDisplayModes();
             }
         } catch (RemoteException e) {
+        } finally {
+            if (modes == null) {
+                return null;
+            }
+            final ArrayList<DisplayMode> remapped = new ArrayList<DisplayMode>();
+            for (DisplayMode mode : modes) {
+                DisplayMode r = remapDisplayMode(mode);
+                if (r != null) {
+                    remapped.add(r);
+                }
+            }
+            return remapped.toArray(new DisplayMode[remapped.size()]);
         }
-        return null;
     }
 
     /**
      * @return the currently active display mode
      */
     public DisplayMode getCurrentDisplayMode() {
-        if (isSupportedHIDL(FEATURE_DISPLAY_MODES)) {
-            IDisplayModes displayModes = (IDisplayModes) mHIDLMap.get(FEATURE_DISPLAY_MODES);
-            try {
-                return HIDLHelper.fromHIDLMode(displayModes.getCurrentDisplayMode());
-            } catch (RemoteException e) {
-                return null;
-            }
-        }
-
+        DisplayMode mode = null;
         try {
-            if (checkService()) {
-                return sService.getCurrentDisplayMode();
+            if (isSupportedHIDL(FEATURE_DISPLAY_MODES)) {
+                IDisplayModes displayModes = (IDisplayModes) mHIDLMap.get(FEATURE_DISPLAY_MODES);
+                mode = HIDLHelper.fromHIDLMode(displayModes.getCurrentDisplayMode());
+            } else if (checkService()) {
+                mode = sService.getCurrentDisplayMode();
             }
         } catch (RemoteException e) {
+        } finally {
+            return mode != null ? remapDisplayMode(mode) : null;
         }
-        return null;
     }
 
     /**
      * @return the default display mode to be set on boot
      */
     public DisplayMode getDefaultDisplayMode() {
-        if (isSupportedHIDL(FEATURE_DISPLAY_MODES)) {
-            IDisplayModes displayModes = (IDisplayModes) mHIDLMap.get(FEATURE_DISPLAY_MODES);
-            try {
-                return HIDLHelper.fromHIDLMode(displayModes.getDefaultDisplayMode());
-            } catch (RemoteException e) {
-                return null;
-            }
-        }
-
+        DisplayMode mode = null;
         try {
-            if (checkService()) {
-                return sService.getDefaultDisplayMode();
+            if (isSupportedHIDL(FEATURE_DISPLAY_MODES)) {
+                IDisplayModes displayModes = (IDisplayModes) mHIDLMap.get(FEATURE_DISPLAY_MODES);
+                mode = HIDLHelper.fromHIDLMode(displayModes.getDefaultDisplayMode());
+            } else if (checkService()) {
+                mode = sService.getDefaultDisplayMode();
             }
         } catch (RemoteException e) {
+        } finally {
+            return mode != null ? remapDisplayMode(mode) : null;
         }
-        return null;
     }
 
     /**
      * @return true if setting the mode was successful
      */
     public boolean setDisplayMode(DisplayMode mode, boolean makeDefault) {
-        if (isSupportedHIDL(FEATURE_DISPLAY_MODES)) {
-            IDisplayModes displayModes = (IDisplayModes) mHIDLMap.get(FEATURE_DISPLAY_MODES);
-            try {
-                return displayModes.setDisplayMode(mode.id, makeDefault);
-            } catch (RemoteException e) {
-                return false;
-            }
-        }
-
         try {
-            if (checkService()) {
+            if (isSupportedHIDL(FEATURE_DISPLAY_MODES)) {
+                IDisplayModes displayModes = (IDisplayModes) mHIDLMap.get(FEATURE_DISPLAY_MODES);
+                return displayModes.setDisplayMode(mode.id, makeDefault);
+            } else if (checkService()) {
                 return sService.setDisplayMode(mode, makeDefault);
             }
         } catch (RemoteException e) {
@@ -1024,46 +735,46 @@ public final class LineageHardwareManager {
         return false;
     }
 
+    private DisplayMode remapDisplayMode(DisplayMode in) {
+        if (in == null) {
+            return null;
+        }
+        if (mDisplayModeMappings.containsKey(in.name)) {
+            return new DisplayMode(in.id, mDisplayModeMappings.get(in.name));
+        }
+        if (!mFilterDisplayModes) {
+            return in;
+        }
+        return null;
+    }
+
     /**
      * @return the available range for color temperature adjustments
      */
     public Range<Integer> getColorBalanceRange() {
-        if (isSupportedHIDL(FEATURE_COLOR_BALANCE)) {
-            IColorBalance colorBalance = (IColorBalance) mHIDLMap.get(FEATURE_COLOR_BALANCE);
-            try {
-                return HIDLHelper.fromHIDLRange(colorBalance.getColorBalanceRange());
-            } catch (RemoteException e) {
-                return new Range<Integer>(0, 0);
-            }
-        }
-
-        int min = 0;
-        int max = 0;
         try {
-            if (checkService()) {
-                min = sService.getColorBalanceMin();
-                max = sService.getColorBalanceMax();
+            if (isSupportedHIDL(FEATURE_COLOR_BALANCE)) {
+                IColorBalance colorBalance = (IColorBalance) mHIDLMap.get(FEATURE_COLOR_BALANCE);
+                return HIDLHelper.fromHIDLRange(colorBalance.getColorBalanceRange());
+            } else if (checkService()) {
+                return new Range<Integer>(
+                        sService.getColorBalanceMin(),
+                        sService.getColorBalanceMax());
             }
         } catch (RemoteException e) {
         }
-        return new Range<Integer>(min, max);
+        return new Range<Integer>(0, 0);
     }
 
     /**
      * @return the current color balance value
      */
     public int getColorBalance() {
-        if (isSupportedHIDL(FEATURE_COLOR_BALANCE)) {
-            IColorBalance colorBalance = (IColorBalance) mHIDLMap.get(FEATURE_COLOR_BALANCE);
-            try {
-                return colorBalance.getColorBalance();
-            } catch (RemoteException e) {
-                return 0;
-            }
-        }
-
         try {
-            if (checkService()) {
+            if (isSupportedHIDL(FEATURE_COLOR_BALANCE)) {
+                IColorBalance colorBalance = (IColorBalance) mHIDLMap.get(FEATURE_COLOR_BALANCE);
+                return colorBalance.getColorBalance();
+            } else if (checkService()) {
                 return sService.getColorBalance();
             }
         } catch (RemoteException e) {
@@ -1079,17 +790,11 @@ public final class LineageHardwareManager {
      * @return true if success
      */
     public boolean setColorBalance(int value) {
-        if (isSupportedHIDL(FEATURE_COLOR_BALANCE)) {
-            IColorBalance colorBalance = (IColorBalance) mHIDLMap.get(FEATURE_COLOR_BALANCE);
-            try {
-                return colorBalance.setColorBalance(value);
-            } catch (RemoteException e) {
-                return false;
-            }
-        }
-
         try {
-            if (checkService()) {
+            if (isSupportedHIDL(FEATURE_COLOR_BALANCE)) {
+                IColorBalance colorBalance = (IColorBalance) mHIDLMap.get(FEATURE_COLOR_BALANCE);
+                return colorBalance.setColorBalance(value);
+            } else if (checkService()) {
                 return sService.setColorBalance(value);
             }
         } catch (RemoteException e) {
@@ -1103,18 +808,12 @@ public final class LineageHardwareManager {
      * @return HSIC object with current settings
      */
     public HSIC getPictureAdjustment() {
-        if (isSupportedHIDL(FEATURE_PICTURE_ADJUSTMENT)) {
-            IPictureAdjustment pictureAdjustment = (IPictureAdjustment)
-                    mHIDLMap.get(FEATURE_PICTURE_ADJUSTMENT);
-            try {
-                return HIDLHelper.fromHIDLHSIC(pictureAdjustment.getPictureAdjustment());
-            } catch (RemoteException e) {
-                return null;
-            }
-        }
-
         try {
-            if (checkService()) {
+            if (isSupportedHIDL(FEATURE_PICTURE_ADJUSTMENT)) {
+                IPictureAdjustment pictureAdjustment = (IPictureAdjustment)
+                        mHIDLMap.get(FEATURE_PICTURE_ADJUSTMENT);
+                return HIDLHelper.fromHIDLHSIC(pictureAdjustment.getPictureAdjustment());
+            } else if (checkService()) {
                 return sService.getPictureAdjustment();
             }
         } catch (RemoteException e) {
@@ -1128,18 +827,12 @@ public final class LineageHardwareManager {
      * @return HSIC object with default settings
      */
     public HSIC getDefaultPictureAdjustment() {
-        if (isSupportedHIDL(FEATURE_PICTURE_ADJUSTMENT)) {
-            IPictureAdjustment pictureAdjustment = (IPictureAdjustment)
-                    mHIDLMap.get(FEATURE_PICTURE_ADJUSTMENT);
-            try {
-                return HIDLHelper.fromHIDLHSIC(pictureAdjustment.getDefaultPictureAdjustment());
-            } catch (RemoteException e) {
-                return null;
-            }
-        }
-
         try {
-            if (checkService()) {
+            if (isSupportedHIDL(FEATURE_PICTURE_ADJUSTMENT)) {
+                IPictureAdjustment pictureAdjustment = (IPictureAdjustment)
+                        mHIDLMap.get(FEATURE_PICTURE_ADJUSTMENT);
+                return HIDLHelper.fromHIDLHSIC(pictureAdjustment.getDefaultPictureAdjustment());
+            } else if (checkService()) {
                 return sService.getDefaultPictureAdjustment();
             }
         } catch (RemoteException e) {
@@ -1154,18 +847,12 @@ public final class LineageHardwareManager {
      * @return true if success
      */
     public boolean setPictureAdjustment(final HSIC hsic) {
-        if (isSupportedHIDL(FEATURE_PICTURE_ADJUSTMENT)) {
-            IPictureAdjustment pictureAdjustment = (IPictureAdjustment)
-                    mHIDLMap.get(FEATURE_PICTURE_ADJUSTMENT);
-            try {
-                return pictureAdjustment.setPictureAdjustment(HIDLHelper.toHIDLHSIC(hsic));
-            } catch (RemoteException e) {
-                return false;
-            }
-        }
-
         try {
-            if (checkService()) {
+            if (isSupportedHIDL(FEATURE_PICTURE_ADJUSTMENT)) {
+                IPictureAdjustment pictureAdjustment = (IPictureAdjustment)
+                        mHIDLMap.get(FEATURE_PICTURE_ADJUSTMENT);
+                return pictureAdjustment.setPictureAdjustment(HIDLHelper.toHIDLHSIC(hsic));
+            } else if (checkService()) {
                 return sService.setPictureAdjustment(hsic);
             }
         } catch (RemoteException e) {
@@ -1179,23 +866,17 @@ public final class LineageHardwareManager {
      * @return range list
      */
     public List<Range<Float>> getPictureAdjustmentRanges() {
-        if (isSupportedHIDL(FEATURE_PICTURE_ADJUSTMENT)) {
-            IPictureAdjustment pictureAdjustment = (IPictureAdjustment)
-                    mHIDLMap.get(FEATURE_PICTURE_ADJUSTMENT);
-            try {
+        try {
+            if (isSupportedHIDL(FEATURE_PICTURE_ADJUSTMENT)) {
+                IPictureAdjustment pictureAdjustment = (IPictureAdjustment)
+                        mHIDLMap.get(FEATURE_PICTURE_ADJUSTMENT);
                 return Arrays.asList(
-                        HIDLHelper.fromHIDLIntRange(pictureAdjustment.getHueRange()),
+                        HIDLHelper.fromHIDLRange(pictureAdjustment.getHueRange()),
                         HIDLHelper.fromHIDLRange(pictureAdjustment.getSaturationRange()),
                         HIDLHelper.fromHIDLRange(pictureAdjustment.getIntensityRange()),
                         HIDLHelper.fromHIDLRange(pictureAdjustment.getContrastRange()),
                         HIDLHelper.fromHIDLRange(pictureAdjustment.getSaturationThresholdRange()));
-            } catch (RemoteException e) {
-                return null;
-            }
-        }
-
-        try {
-            if (checkService()) {
+            } else if (checkService()) {
                 float[] ranges = sService.getPictureAdjustmentRanges();
                 if (ranges.length > 7) {
                     return Arrays.asList(new Range<Float>(ranges[0], ranges[1]),
@@ -1216,18 +897,12 @@ public final class LineageHardwareManager {
      * @return a list of available touchscreen gestures on the devices
      */
     public TouchscreenGesture[] getTouchscreenGestures() {
-        if (isSupportedHIDL(FEATURE_TOUCHSCREEN_GESTURES)) {
-            ITouchscreenGesture touchscreenGesture = (ITouchscreenGesture)
-                    mHIDLMap.get(FEATURE_TOUCHSCREEN_GESTURES);
-            try {
-                return HIDLHelper.fromHIDLGestures(touchscreenGesture.getSupportedGestures());
-            } catch (RemoteException e){
-                return null;
-            }
-        }
-
         try {
-            if (checkService()) {
+            if (isSupportedHIDL(FEATURE_TOUCHSCREEN_GESTURES)) {
+                ITouchscreenGesture touchscreenGesture = (ITouchscreenGesture)
+                        mHIDLMap.get(FEATURE_TOUCHSCREEN_GESTURES);
+                return HIDLHelper.fromHIDLGestures(touchscreenGesture.getSupportedGestures());
+            } else if (checkService()) {
                 return sService.getTouchscreenGestures();
             }
         } catch (RemoteException e) {
@@ -1240,19 +915,13 @@ public final class LineageHardwareManager {
      */
     public boolean setTouchscreenGestureEnabled(
             TouchscreenGesture gesture, boolean state) {
-        if (isSupportedHIDL(FEATURE_TOUCHSCREEN_GESTURES)) {
-            ITouchscreenGesture touchscreenGesture = (ITouchscreenGesture)
-                    mHIDLMap.get(FEATURE_TOUCHSCREEN_GESTURES);
-            try {
+        try {
+            if (isSupportedHIDL(FEATURE_TOUCHSCREEN_GESTURES)) {
+                ITouchscreenGesture touchscreenGesture = (ITouchscreenGesture)
+                        mHIDLMap.get(FEATURE_TOUCHSCREEN_GESTURES);
                 return touchscreenGesture.setGestureEnabled(
                         HIDLHelper.toHIDLGesture(gesture), state);
-            } catch (RemoteException e){
-                return false;
-            }
-        }
-
-        try {
-            if (checkService()) {
+            } else if (checkService()) {
                 return sService.setTouchscreenGestureEnabled(gesture, state);
             }
         } catch (RemoteException e) {

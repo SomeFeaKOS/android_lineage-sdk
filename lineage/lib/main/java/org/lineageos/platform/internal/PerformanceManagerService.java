@@ -126,32 +126,28 @@ public class PerformanceManagerService extends LineageSystemService {
         if (mContext.getResources().getBoolean(R.bool.config_waitForMpctlOnBoot)) {
             mMpctlReady = false;
             mWaitMpctlThread = new Thread(() -> {
-                boolean initCompleted = false;
-                do {
-                    boolean isPostBootExecuted = SystemProperties.getBoolean(
-                            "sys.post_boot.parsed", false) || SystemProperties.getBoolean(
-                            "vendor.post_boot.parsed", false);
-                    if (!isPostBootExecuted) {
+                int retries = 20;
+                while (retries-- > 0) {
+                    if (!SystemProperties.getBoolean("sys.post_boot.parsed", false) &&
+                            !SystemProperties.getBoolean("vendor.post_boot.parsed", false)) {
                         continue;
                     }
 
-                    boolean isMpctlRunning = SystemProperties.get(
-                            "init.svc.perf-hal-1-0").equals("running") ||
-                            SystemProperties.get("init.svc.mpdecision").equals("running") ||
-                            SystemProperties.get("init.svc.perfd").equals("running") ||
-                            SystemProperties.get("init.svc.vendor.perfd").equals("running");
-
-                    initCompleted = isPostBootExecuted && isMpctlRunning;
-                    if (!initCompleted) {
-                        try {
-                            Thread.sleep(100);
-                        } catch (InterruptedException e) {
-                            Slog.w(TAG, "Interrupted:", e);
-                        }
+                    if (SystemProperties.get("init.svc.perfd").equals("running") ||
+                            SystemProperties.get("init.svc.vendor.perfd").equals("running") ||
+                            SystemProperties.get("init.svc.perf-hal-1-0").equals("running") ||
+                            SystemProperties.get("init.svc.mpdecision").equals("running")) {
+                        break;
                     }
-                } while (!initCompleted);
 
-                // Give mp-ctl enough time to initialize.
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException e) {
+                        Slog.w(TAG, "Interrupted:", e);
+                    }
+                }
+
+                // Give mp-ctl enough time to initialize
                 try {
                     Thread.sleep(1000);
                 } catch (InterruptedException e) {
@@ -244,10 +240,6 @@ public class PerformanceManagerService extends LineageSystemService {
 
                     mObserver = new PerformanceSettingsObserver(mContext, mHandler);
                     mObserver.observe(true);
-
-                    if (mWaitMpctlThread != null) {
-                        mWaitMpctlThread.start();
-                    }
                 }
 
                 mSystemReady = true;
@@ -259,6 +251,8 @@ public class PerformanceManagerService extends LineageSystemService {
                             new IntentFilter(Intent.ACTION_LOCALE_CHANGED));
                 }
             }
+        } else if (phase == PHASE_BOOT_COMPLETED && !mMpctlReady) {
+            mWaitMpctlThread.start();
         }
     }
 
